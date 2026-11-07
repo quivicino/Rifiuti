@@ -56,3 +56,11 @@ Cambiare insieme il numero di versione in `config.js` (`versione`), in `sw.js` (
 Punti di raccolta e mappa: © OpenStreetMap e i suoi volontari (ODbL). Prodotti: Open Food Facts (ODbL).
 Riconoscimento dalle foto: Claude (Anthropic).
 Le regole della differenziata cambiano da comune a comune: vale sempre quello che dice il proprio comune o il gestore della raccolta.
+
+## Dati dal computer di paolo (PBF Italia)
+
+Ogni giorno il computer di paolo aggiorna il PBF dell'Italia di Geofabrik, ne estrae gli stessi oggetti
+della query Overpass e li carica come `rifiuti.json.gz` sulla release **dati-osm** di questo repository
+(script `osm_italia.py`, fuori dal repository), poi fa partire la pubblicazione.
+Lo script di aggiornamento usa per prima quella copia, se ha dati OSM di meno di 3 giorni;
+altrimenti chiede a Overpass come prima. Nell'indice dei dati, `datiOsm` / `dati_osm` dice di quando sono i dati della copia.

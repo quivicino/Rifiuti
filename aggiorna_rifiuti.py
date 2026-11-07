@@ -17,6 +17,7 @@ Ogni punto: {"i": "n123", "la": 44.49, "lo": 11.34, "t": ["centro"], "n": nome, 
 Se OpenStreetMap non risponde, ricopia i dati già pubblicati dal sito (variabile d'ambiente SITO),
 così il sito non resta mai vuoto.
 """
+import gzip
 import json
 import math
 import os
@@ -82,7 +83,36 @@ def tipi(tags):
     return t
 
 
+# Copia preparata ogni giorno dal computer di paolo (osm_italia.py, PBF Italia di Geofabrik):
+# si usa per prima, Overpass resta solo come riserva. Vale se i dati OSM hanno meno di GIORNI_COPIA giorni.
+COPIA_PC = os.environ.get("COPIA_PC") or "https://github.com/quivicino/Rifiuti/releases/download/dati-osm/rifiuti.json.gz"
+GIORNI_COPIA = 3
+DATI_OSM = {"data": None}   # data dei dati OSM della copia usata (finisce in indice.json)
+
+
+def da_copia_pc():
+    print(f"  scarico la copia del computer: {COPIA_PC} …", flush=True)
+    req = urllib.request.Request(COPIA_PC, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=300) as r:
+        risposta = json.loads(gzip.decompress(r.read()).decode("utf-8"))
+    base = (risposta.get("osm3s") or {}).get("timestamp_osm_base") or ""
+    quando = datetime.strptime(base, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    giorni = (datetime.now(timezone.utc) - quando).total_seconds() / 86400
+    if giorni >= GIORNI_COPIA:
+        raise ValueError(f"copia troppo vecchia (dati OSM del {base})")
+    elementi = risposta.get("elements", [])
+    if len(elementi) < 1000:
+        raise ValueError(f"troppo pochi elementi ({len(elementi)})")
+    print(f"  {len(elementi)} elementi, dati OSM del {base}")
+    DATI_OSM["data"] = base
+    return elementi
+
+
 def scarica_osm():
+    try:
+        return da_copia_pc()
+    except Exception as ex:
+        print(f"  copia del computer non disponibile ({ex}): uso Overpass come prima.")
     dati = urllib.parse.urlencode({"data": QUERY}).encode("utf-8")
     ultimo = None
     for giro in range(2):
@@ -164,6 +194,7 @@ def salva(punti, conta, diagnosi):
         "aggiornato": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "punti": len(punti),
         "per_tipo": dict(conta),
+        "dati_osm": DATI_OSM["data"],   # data dei dati della copia del computer (null = da Overpass)
         "tessere": sorted(tessere),
         "fonte": "© OpenStreetMap e i suoi volontari (ODbL)",
         "licenza": "Open Database License (ODbL) 1.0",
